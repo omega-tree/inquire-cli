@@ -2,7 +2,8 @@
 name = "inquire-cli"
 version = "0.1.0"
 edition = "2021"
-
+description = "interact with the user. a system call abstraction to inquire."
+license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -11,3 +12,4 @@ chrono = "0.4"
 clap = { version = "3.1.18", features = ["derive"] }
 yaml-rust = "0.4"
 linked-hash-map="0.5.4"
+
