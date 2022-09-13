@@ -49,19 +49,18 @@ fn main() {
     
     let mut answer_conf = read_answer_conf(&args);
 
-    dbg!(&answer_conf);
+    // dbg!(&answer_conf);
 
     let answer_array = parse_cli(&args, &cfgs, answer_conf.clone());
 
-
-    dbg!(&answer_array);
+    // dbg!(&answer_array);
 
     write_output(&args, &cfgs, answer_array, answer_conf);
 }
 
 #[derive(Debug)]
 struct Answer {
-    name : String,
+    name   : String,
     answer : Vec<String>
 }
 
@@ -96,7 +95,7 @@ fn read_answer_conf(args: &Args) -> Yaml {
 fn parse_cli(args: &Args, cfgs: &Yaml , mut answer_conf: Yaml)->Vec<Option<Answer>> {
 
     let mut result: Vec<Option<Answer>> = Vec::new();    
-    dbg!(&cfgs);    
+    // dbg!(&cfgs);    
     for cfg in cfgs.as_vec().unwrap() {
         if let Some(output_answers_file) = args.output_answers_file.clone() {
             let path = Path::new(&output_answers_file);
@@ -152,7 +151,7 @@ fn parse_cli(args: &Args, cfgs: &Yaml , mut answer_conf: Yaml)->Vec<Option<Answe
 
                 ));
 
-                dbg!(&result);
+                // dbg!(&result);
                 let mut res = Vec::new();
                 for rz in &result {
                     if let Some(results) = rz{
@@ -173,11 +172,13 @@ fn parse_cli(args: &Args, cfgs: &Yaml , mut answer_conf: Yaml)->Vec<Option<Answe
     return result;
 }
 
+// if the answer_conf has a hash key that the answer list does not have then add it 
 fn write_output(args:&Args, cfg:&Yaml, answer_list:Vec<Option<Answer>>, answer_conf:Yaml){
+    let mut output_conf = answer_conf.clone();
 
     for some_answer in answer_list {
         if let Some(answer) = some_answer {
-            let answer_conf = if let Yaml::Hash(mut x) = answer_conf.clone() {
+            output_conf = if let Yaml::Hash(mut x) = output_conf.clone() {
                 let mut a = Vec::new();
                 for v in answer.answer{
                     a.push(Yaml::String(v))
@@ -187,28 +188,27 @@ fn write_output(args:&Args, cfg:&Yaml, answer_list:Vec<Option<Answer>>, answer_c
             }else{
                 panic!("Should be unreachable");
             };
-            
-        
-            let mut out_str = String::new();
-            let mut emitter = YamlEmitter::new(&mut out_str);
-            emitter.dump(&answer_conf).unwrap(); // dump the YAML object to a String
-        
-            let mut file = OpenOptions::new()
-                .read(false)
-                .write(true)
-                .create(false)
-                .truncate(true)
-                .open(args.output_answers_file.clone().unwrap())
-                .unwrap();
-            
-            
-            file.write_all(out_str.as_bytes()).unwrap();
-            file.sync_all();
-            dbg!(answer_conf);
-            dbg!(out_str);
-        
         }
     }
+    
+    let mut out_str = String::new();
+    let mut emitter = YamlEmitter::new(&mut out_str);
+    emitter.dump(&output_conf).unwrap(); // dump the YAML object to a String
+
+    let mut file = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .create(false)
+        .truncate(true)
+        .open(args.output_answers_file.clone().unwrap())
+        .unwrap();
+    
+    
+    file.write_all(out_str.as_bytes()).unwrap();
+    file.sync_all();
+    // dbg!(output_conf);
+    // dbg!(out_str);
+
 }
 
 fn confirm(args:&Args, cfg:&Yaml)-> Vec<String>{
@@ -338,6 +338,14 @@ fn text(args:&Args, cfg:&Yaml)-> Vec<String>{
             inq.with_suggester(&sub)
         }else{
             panic!("help attribute must be a string!");
+        };
+    }
+
+    if cfg["placeholder"].is_badvalue() == false {
+        inq = if let Some(placeholder) = cfg["placeholder"].as_str(){
+            inq.with_placeholder(placeholder)
+        }else{
+            panic!("placeholder attribute must be a string!");
         };
     }
 
@@ -754,6 +762,7 @@ RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[{"name":"test", "
 RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[{"name":"test", "type":"date_select",    "message":"Please pick a date for the flight", "help" : "extra_help", "week_start":"mon", "min_date":"2022-5-17" }]'
 
 RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[{"name":"test", "type":"select",    "message":"Please pick a some food", "help" : "extra_help", "options":["pasta", "pizza", "meat_balls"] }]'
+RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[{"name":"test", "type":"select",    "message":"Please pick a some food \n multiple lines", "help" : "extra_help", "options":["pasta", "pizza", "meat_balls"] }]'
 
 RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[{"name":"test", "type":"multi_select",    "message":"Please pick a some food", "help" : "extra_help", "options":["pasta", "pizza", "meat_balls"], }]'
 RUST_BACKTRACE=1 cargo run -- -o /home/flopes/answers.yml -c '[
@@ -769,7 +778,7 @@ inquire --config='{
     "message": "What is your name",
     "render": ?,
     "default_values": [],
-    "placeholders": [],
+    "placeholders": [],  # placeholder, text, confirm
     "validators": [
         {
         "function" : "answers_count_gte",
@@ -783,33 +792,45 @@ inquire --config='{
 
 
 
-    # EXCLUSIVE TO Select & MultiSelect
+    # ====== EXCLUSIVE TO Select & MultiSelect ========
     "page_size" : 7, 
     "options" : [""],
     "starting_cursor" : 0,
     "display_option_indicies" : false
     
 
-    # EXCLUSIVE TO MULTISELECT
+    # ====== EXCLUSIVE TO MULTISELECT ========
     "default_selection" : [""],
     "starting_cursor"   : 0,
     "keep_filter_flag"  : true,
 
-    # EXCLUSIVE TO DATESELECT
+    # ====== EXCLUSIVE TO DATESELECT ========
     "min_date" : ""  #FOR DATESELECT
     "max_date" : ""  #FOR DATESELECT
     "week_start" : "" # mon | tue | wed | thu | fri | sat | sun
 
-    # EXCLUSIVE TO EDITOR
+    # ====== EXCLUSIVE TO EDITOR ========
     "editor_args" : ["nano"],
     "file_extension" : "",
     "predefined_text": "",
 
 
-    # EXCLUSIVE TO PASSWORD
+    # ====== EXCLUSIVE TO PASSWORD ========
     display_mode: "Hidden", # Hidden|Masked|Full
     mask_character: "*",
     toggle_display: false,
+
+
+    validators:[{
+        type: string      
+        sub_type: regex_match | min_len | max_len | file_exist | dir_exists | dir_of_file_exists
+        value: 1
+    }
+    ]
+    validators:[{
+        type: select
+        sub_type: min_selection_count | max_selection_count
+    }]
 
 
 
